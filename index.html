@@ -6,20 +6,18 @@
     <title>Interactive Anaglyph Tunnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
-      body {
+      /* --- UPDATED: More robust full-screen styling for all devices --- */
+      html, body {
+        height: 100%;
         margin: 0;
-        overflow: hidden; /* Prevent scrollbars */
+        padding: 0;
+        overflow: hidden;
         background-color: #000;
         font-family: 'Inter', sans-serif;
         color: white;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
       }
       canvas {
         display: block;
-        box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
       }
       .instructions {
         position: absolute;
@@ -89,6 +87,22 @@
 
         p.draw = function() {
           camZ -= flightSpeed;
+
+          // --- FIX: Recycling logic is now in the main draw loop ---
+          // This ensures it happens consistently every frame.
+          for (const star of stars) {
+              if (star.z > camZ) {
+                  star.z -= tunnelLength;
+                  star.x = p.random(-4000, 4000);
+                  star.y = p.random(-4000, 4000);
+              }
+          }
+          for (const ring of rings) {
+              if (ring.z > camZ + 50) {
+                  ring.z -= totalRings * ringSpacing;
+                  ring.randomize();
+              }
+          }
 
           // Draw the scene twice, once for each eye
           drawScene(leftEye, -eyeSeparation / 2); // Left eye is offset to the left
@@ -166,12 +180,6 @@
           pg.push();
           pg.noFill(); 
           for(const star of stars) {
-              if (star.z > camZ) {
-                  star.z -= tunnelLength;
-                  star.x = p.random(-4000, 4000);
-                  star.y = p.random(-4000, 4000);
-              }
-              
               const twinkleSize = 4 + p.sin(p.frameCount * star.twinkleSpeed + star.twinkleOffset) * 3;
               pg.strokeWeight(twinkleSize);
               pg.stroke(star.color);
@@ -224,15 +232,14 @@
               
               // Head
               pg.noStroke();
-              pg.fill(255, 255, 0); // Use fill() for 2D shapes
+              pg.fill(255, 255, 0); 
               pg.ellipse(0, 0, size * 2, size * 2);
-
-              // Features are drawn slightly in front to prevent Z-fighting
-              pg.push();
-              pg.translate(0, 0, 1); 
+              
+              const gl = pg._renderer.GL;
+              gl.disable(gl.DEPTH_TEST);
 
               // Eyes
-              pg.fill(0); // Use fill() for the eyes
+              pg.fill(0); 
               pg.ellipse(-size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
               pg.ellipse(size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
 
@@ -242,16 +249,17 @@
               pg.noFill();
               pg.arc(0, size * 0.1, size, size, 0, p.PI);
               
-              pg.pop();
+              gl.enable(gl.DEPTH_TEST);
 
               pg.pop();
           }
 
           updateAndDisplay(pg) {
-            if (this.z > camZ + 50) {
-              this.z -= totalRings * ringSpacing;
-              this.randomize();
-            }
+            // --- REMOVED: Recycling logic is now handled in the main draw loop ---
+            // if (this.z > camZ + 50) {
+            //   this.z -= totalRings * ringSpacing;
+            //   this.randomize();
+            // }
 
             pg.push();
             
