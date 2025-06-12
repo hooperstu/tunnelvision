@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Interactive Anaglyph Tunnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
     <style>
       body {
         margin: 0;
@@ -40,8 +39,8 @@
      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div class="instructions">
-        Make some noise! The tunnel's brightness responds to your microphone.
+    <div class="instructions" id="instructions">
+        Hi, put on your 3D glasses and enjoy the ride.
     </div>
     <script>
       // This is p5.js "instance mode".
@@ -49,10 +48,6 @@
         // Manual anaglyph implementation variables
         let leftEye, rightEye;
         const eyeSeparation = 40; // How far apart the "eyes" are for the 3D effect
-
-        // --- NEW: Microphone input variables ---
-        let mic;
-        let micLevel = 0;
 
         const rings = [];
         const totalRings = 30; 
@@ -74,11 +69,7 @@
           rightEye = p.createGraphics(p.width, p.height, p.WEBGL);
           leftEye.noStroke();
           rightEye.noStroke();
-
-          // --- NEW: Initialize microphone input ---
-          mic = new p5.AudioIn();
-          mic.start();
-
+          
           // Create the initial set of rings for the tunnel
           for (let i = 0; i < totalRings; i++) {
             rings.push(new TunnelRing(i * -ringSpacing));
@@ -98,10 +89,6 @@
 
         p.draw = function() {
           camZ -= flightSpeed;
-
-          // --- NEW: Get microphone volume ---
-          // Smooth the mic level reading for a less jittery effect
-          micLevel = p.lerp(micLevel, mic.getLevel(), 0.1);
 
           // Draw the scene twice, once for each eye
           drawScene(leftEye, -eyeSeparation / 2); // Left eye is offset to the left
@@ -157,14 +144,12 @@
             pg.pop();
         }
         
-        // drawScene now takes an eye offset
         function drawScene(pg, eyeX) {
           pg.background(0, 0, 10);
           
-          const cameraX = eyeX; // Apply the eye offset to the camera
+          const cameraX = eyeX;
           const cameraY = 0;
 
-          // The camera now looks straight ahead from its position
           const lookAtX = eyeX;
           const lookAtY = 0;
           const lookAtZ = camZ - 1000;
@@ -173,17 +158,13 @@
                     lookAtX, lookAtY, lookAtZ, 
                     0, 1, 0);
 
-          // --- UPDATED: Lighting brightness is controlled by micLevel ---
-          const ambientBrightness = p.map(micLevel, 0, 0.5, 20, 150);
-          const pointBrightness = p.map(micLevel, 0, 0.5, 100, 255);
-          pg.ambientLight(ambientBrightness);
-          pg.pointLight(pointBrightness, pointBrightness, pointBrightness, 0, 0, camZ + 200);
+          pg.ambientLight(50, 50, 50);
+          pg.pointLight(255, 255, 255, 0, 0, camZ + 200);
 
           drawStarfoxGrid(pg);
 
-          // Star rendering
           pg.push();
-          pg.noFill(); // Points don't have a fill
+          pg.noFill(); 
           for(const star of stars) {
               if (star.z > camZ) {
                   star.z -= tunnelLength;
@@ -195,7 +176,6 @@
               pg.strokeWeight(twinkleSize);
               pg.stroke(star.color);
               
-              // Draw the star as a simple, fast point
               pg.point(star.x, star.y, star.z);
           }
           pg.pop();
@@ -207,7 +187,6 @@
         
         p.windowResized = function() {
           p.resizeCanvas(p.windowWidth, p.windowHeight);
-          // Re-create the eye canvases instead of trying to resize them
           leftEye = p.createGraphics(p.width, p.height, p.WEBGL);
           rightEye = p.createGraphics(p.width, p.height, p.WEBGL);
           leftEye.noStroke();
@@ -238,27 +217,31 @@
 
           drawSmiley(pg, size) {
               pg.push();
+              // Billboard effect
               pg.rotateZ(-this.rotation.z);
               pg.rotateY(-this.rotation.y);
               pg.rotateX(-this.rotation.x);
               
               // Head
-              pg.emissiveMaterial(255, 255, 0);
               pg.noStroke();
+              pg.fill(255, 255, 0); // Use fill() for 2D shapes
               pg.ellipse(0, 0, size * 2, size * 2);
 
-              // Eyes - drawn at a slightly positive Z to appear on top
+              // Features are drawn slightly in front to prevent Z-fighting
               pg.push();
-              pg.translate(0, 0, 1); // Tiny Z offset
-              pg.emissiveMaterial(0);
+              pg.translate(0, 0, 1); 
+
+              // Eyes
+              pg.fill(0); // Use fill() for the eyes
               pg.ellipse(-size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
               pg.ellipse(size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
 
-              // Smile - also drawn at the same positive Z
+              // Smile
               pg.stroke(0);
               pg.strokeWeight(size * 0.1);
               pg.noFill();
               pg.arc(0, size * 0.1, size, size, 0, p.PI);
+              
               pg.pop();
 
               pg.pop();
