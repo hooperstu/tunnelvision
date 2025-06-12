@@ -146,6 +146,8 @@
         };
 
         function drawScene(pg, eyeX) {
+          // clear previous frame (including depth buffer)
+          pg.clear();
           pg.background(0,0,10);
           pg.camera(eyeX,0,camZ, eyeX,0,camZ-1000, 0,1,0);
           pg.ambientLight(50,50,50);
