@@ -85,11 +85,11 @@
           }
         };
 
-        // --- NEW: A single function to update all object states once per frame ---
+        // A single function to update all object states once per frame
         function updateState() {
             camZ -= flightSpeed;
 
-            // --- Star Recycling Logic ---
+            // Star Recycling Logic
             for (const star of stars) {
                 if (star.z > camZ) {
                     star.z -= tunnelLength;
@@ -98,7 +98,7 @@
                 }
             }
 
-            // --- Ring and Shape Recycling Logic ---
+            // Ring and Shape Recycling Logic
             for (const ring of rings) {
                 if (ring.z > camZ + 50) {
                     ring.z -= totalRings * ringSpacing;
@@ -112,7 +112,6 @@
         }
 
         p.draw = function() {
-          // --- FIX: Update state only ONCE per frame ---
           updateState();
 
           // Now, draw the scene twice with the updated state
@@ -136,36 +135,37 @@
           p.blendMode(p.BLEND);
         };
 
-        function drawStarfoxGrid(pg) {
+        // --- DEFINITIVE FIX: Grid is now fully procedural and infinite ---
+        function drawInfiniteGrid(pg) {
             pg.push();
             pg.strokeWeight(2);
 
-            const gridSize = 12000;
-            const gridLines = 40;
-            const gridSpacing = gridSize / gridLines;
+            const gridWidth = 10000;
+            const gridDepth = 15000; // How far into the distance the grid is drawn
+            const gridSpacing = 400;
             const gridY = 800;
 
-            pg.stroke(0, 255, 255, 150);
-            for (let i = 0; i <= gridLines; i++) {
-                const pos = -gridSize / 2 + i * gridSpacing;
-                pg.line(pos, gridY, -gridSize*2, pos, gridY, gridSize*2);
-            }
             const startZ = camZ - (camZ % gridSpacing);
-            for (let i = 0; i < 80; i++) {
-                const pos = startZ - i * gridSpacing;
-                pg.line(-gridSize/2, gridY, pos, gridSize/2, gridY, pos);
+
+            // --- Draw Floor Grid (Cyan) ---
+            pg.stroke(0, 255, 255, 150);
+            for (let i = -gridWidth; i <= gridWidth; i += gridSpacing) {
+                pg.line(i, gridY, camZ - gridDepth, i, gridY, camZ + 500);
+            }
+            for (let i = 0; i < 50; i++) {
+                const z = startZ - i * gridSpacing;
+                pg.line(-gridWidth, gridY, z, gridWidth, gridY, z);
             }
 
+            // --- Draw Ceiling Grid (Magenta) ---
             pg.stroke(255, 0, 255, 150);
-            for (let i = 0; i <= gridLines; i++) {
-                const pos = -gridSize / 2 + i * gridSpacing;
-                pg.line(pos, -gridY, -gridSize*2, pos, -gridY, gridSize*2);
+            for (let i = -gridWidth; i <= gridWidth; i += gridSpacing) {
+                pg.line(i, -gridY, camZ - gridDepth, i, -gridY, camZ + 500);
             }
-            for (let i = 0; i < 80; i++) {
-                const pos = startZ - i * gridSpacing;
-                pg.line(-gridSize/2, -gridY, pos, gridSize/2, -gridY, pos);
+            for (let i = 0; i < 50; i++) {
+                const z = startZ - i * gridSpacing;
+                pg.line(-gridWidth, -gridY, z, gridWidth, -gridY, z);
             }
-
             pg.pop();
         }
         
@@ -187,7 +187,7 @@
           pg.ambientLight(50, 50, 50);
           pg.pointLight(255, 255, 255, 0, 0, camZ + 200);
 
-          drawStarfoxGrid(pg);
+          drawInfiniteGrid(pg);
 
           pg.push();
           pg.noFill(); 
@@ -262,7 +262,6 @@
               pg.pop();
           }
 
-          // --- RENAMED: from updateAndDisplay to just display ---
           display(pg) {
             pg.push();
             
