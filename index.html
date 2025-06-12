@@ -85,30 +85,55 @@
           }
         };
 
+        // --- NEW: A single function to update all object states once per frame ---
+        function updateState() {
+            camZ -= flightSpeed;
+
+            // --- Star Recycling Logic ---
+            for (const star of stars) {
+                if (star.z > camZ) {
+                    star.z -= tunnelLength;
+                    star.x = p.random(-4000, 4000);
+                    star.y = p.random(-4000, 4000);
+                }
+            }
+
+            // --- Ring and Shape Recycling Logic ---
+            for (const ring of rings) {
+                if (ring.z > camZ + 50) {
+                    ring.z -= totalRings * ringSpacing;
+                    ring.randomize();
+                }
+                // Update rotation for non-smiley shapes
+                if (ring.shapeType !== 'smiley') {
+                    ring.rotation.add(ring.rotationSpeed);
+                }
+            }
+        }
+
         p.draw = function() {
-          camZ -= flightSpeed;
+          // --- FIX: Update state only ONCE per frame ---
+          updateState();
 
-          // --- REMOVED: Recycling logic is moved into the drawing functions ---
-
-          // Draw the scene twice, once for each eye
-          drawScene(leftEye, -eyeSeparation / 2); // Left eye is offset to the left
-          drawScene(rightEye, eyeSeparation / 2);  // Right eye is offset to the right
+          // Now, draw the scene twice with the updated state
+          drawScene(leftEye, -eyeSeparation / 2); // Left eye
+          drawScene(rightEye, eyeSeparation / 2);  // Right eye
 
           // Composite the two eye images onto the main canvas
-          p.background(0); // Clear the main canvas
-          p.blendMode(p.ADD); // Use ADD blend mode to combine the colors
+          p.background(0);
+          p.blendMode(p.ADD);
 
           p.push();
-          p.tint(255, 0, 0); // Apply red filter
+          p.tint(255, 0, 0);
           p.image(leftEye, -p.width / 2, -p.height / 2);
           p.pop();
 
           p.push();
-          p.tint(0, 255, 255); // Apply cyan filter
+          p.tint(0, 255, 255);
           p.image(rightEye, -p.width / 2, -p.height / 2);
           p.pop();
           
-          p.blendMode(p.BLEND); // Reset blend mode
+          p.blendMode(p.BLEND);
         };
 
         function drawStarfoxGrid(pg) {
@@ -144,6 +169,7 @@
             pg.pop();
         }
         
+        // This function now ONLY handles drawing, not state changes.
         function drawScene(pg, eyeX) {
           pg.background(0, 0, 10);
           
@@ -166,13 +192,6 @@
           pg.push();
           pg.noFill(); 
           for(const star of stars) {
-              // --- FIX: Star recycling logic is now here ---
-              if (star.z > camZ) {
-                  star.z -= tunnelLength;
-                  star.x = p.random(-4000, 4000);
-                  star.y = p.random(-4000, 4000);
-              }
-
               const twinkleSize = 4 + p.sin(p.frameCount * star.twinkleSpeed + star.twinkleOffset) * 3;
               pg.strokeWeight(twinkleSize);
               pg.stroke(star.color);
@@ -182,7 +201,7 @@
           pg.pop();
 
           for (const ring of rings) {
-            ring.updateAndDisplay(pg);
+            ring.display(pg);
           }
         }
         
@@ -218,12 +237,10 @@
 
           drawSmiley(pg, size) {
               pg.push();
-              // Billboard effect
               pg.rotateZ(-this.rotation.z);
               pg.rotateY(-this.rotation.y);
               pg.rotateX(-this.rotation.x);
               
-              // Head
               pg.noStroke();
               pg.fill(255, 255, 0); 
               pg.ellipse(0, 0, size * 2, size * 2);
@@ -231,12 +248,10 @@
               const gl = pg._renderer.GL;
               gl.disable(gl.DEPTH_TEST);
 
-              // Eyes
               pg.fill(0); 
               pg.ellipse(-size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
               pg.ellipse(size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
 
-              // Smile
               pg.stroke(0);
               pg.strokeWeight(size * 0.1);
               pg.noFill();
@@ -247,19 +262,13 @@
               pg.pop();
           }
 
-          updateAndDisplay(pg) {
-            // --- FIX: Ring recycling logic is now here ---
-            if (this.z > camZ + 50) {
-              this.z -= totalRings * ringSpacing;
-              this.randomize();
-            }
-
+          // --- RENAMED: from updateAndDisplay to just display ---
+          display(pg) {
             pg.push();
             
             pg.translate(this.x, this.y, this.z);
             
             if (this.shapeType !== 'smiley') {
-                this.rotation.add(this.rotationSpeed);
                 pg.rotateX(this.rotation.x);
                 pg.rotateY(this.rotation.y);
                 pg.rotateZ(this.rotation.z);
