@@ -42,9 +42,7 @@
         let leftEye, rightEye;
         const eyeSeparation = 40;
         const rings = [];
-        const totalRings = 30;
         const ringSpacing = 300;
-        const tunnelSegment = totalRings * ringSpacing;
         const stars = [];
         const totalStars = 125;
         const starSpawnRadius = 4000;
@@ -59,14 +57,14 @@
           leftEye.noStroke();
           rightEye.noStroke();
 
-          for (let i = 0; i < totalRings; i++) {
+          for (let i = 0; i < 60; i++) {
             rings.push(new TunnelRing(i * -ringSpacing));
           }
           for (let i = 0; i < totalStars; i++) {
             stars.push({
               x: p.random(-starSpawnRadius, starSpawnRadius),
               y: p.random(-starSpawnRadius, starSpawnRadius),
-              z: p.random(0, -tunnelSegment),
+              z: p.random(0, -60 * ringSpacing),
               color: p.color(p.random(200,255), p.random(200,255), p.random(220,255)),
               twinkleOffset: p.random(p.TWO_PI),
               twinkleSpeed: p.random(0.05, 0.2)
@@ -80,15 +78,17 @@
 
           for (const star of stars) {
             if (star.z > camZ) {
-              star.z -= tunnelSegment;
+              star.z -= 60 * ringSpacing;
               star.x = p.random(-starSpawnRadius, starSpawnRadius);
               star.y = p.random(-starSpawnRadius, starSpawnRadius);
             }
           }
 
-          for (const ring of rings) {
+          for (let i = 0; i < rings.length; i++) {
+            const ring = rings[i];
             if (ring.z > camZ + recycleThreshold) {
-              ring.z -= tunnelSegment;
+              const furthestZ = Math.min(...rings.map(r => r.z));
+              ring.z = furthestZ - ringSpacing;
               ring.randomize();
             }
             if (ring.shapeType !== 'smiley') {
@@ -105,27 +105,21 @@
           pg.push();
           pg.strokeWeight(2);
 
-          // floor grid (cyan)
           pg.stroke(0, 255, 255, 150);
-          // vertical lines
           for (let i = 0; i <= gridLines; i++) {
             const xPos = -gridSize/2 + i * gridSpacing;
-            pg.line(xPos, 800, startZ, xPos, 800, startZ - tunnelSegment);
+            pg.line(xPos, 800, startZ, xPos, 800, startZ - 60 * ringSpacing);
           }
-          // horizontal lines
           for (let j = 0; j <= gridLines; j++) {
             const zPos = startZ - j * gridSpacing;
             pg.line(-gridSize/2, 800, zPos, gridSize/2, 800, zPos);
           }
 
-          // ceiling grid (magenta)
           pg.stroke(255, 0, 255, 150);
-          // vertical lines
           for (let i = 0; i <= gridLines; i++) {
             const xPos = -gridSize/2 + i * gridSpacing;
-            pg.line(xPos, -800, startZ, xPos, -800, startZ - tunnelSegment);
+            pg.line(xPos, -800, startZ, xPos, -800, startZ - 60 * ringSpacing);
           }
-          // horizontal lines
           for (let j = 0; j <= gridLines; j++) {
             const zPos = startZ - j * gridSpacing;
             pg.line(-gridSize/2, -800, zPos, gridSize/2, -800, zPos);
@@ -146,7 +140,6 @@
         };
 
         function drawScene(pg, eyeX) {
-          // clear previous frame (including depth buffer)
           pg.clear();
           pg.background(0,0,10);
           pg.camera(eyeX,0,camZ, eyeX,0,camZ-1000, 0,1,0);
