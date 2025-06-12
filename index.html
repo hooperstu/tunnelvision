@@ -3,10 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interactive Anaglyph Tunnel</title>
+    <title>interactive anaglyph tunnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
-      /* --- UPDATED: More robust full-screen styling for all devices --- */
       html, body {
         height: 100%;
         margin: 0;
@@ -29,7 +28,7 @@
         border-radius: 10px;
         font-size: 14px;
         text-align: center;
-        pointer-events: none; /* Make sure it doesn't block mouse events for the canvas */
+        pointer-events: none;
       }
     </style>
      <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,166 +36,129 @@
      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div class="instructions" id="instructions">
-        Hi, put on your 3D glasses and enjoy the ride.
-    </div>
+    <div class="instructions">put on your 3d glasses and enjoy the ride</div>
     <script>
-      // This is p5.js "instance mode".
       const sketch = (p) => {
-        // Manual anaglyph implementation variables
         let leftEye, rightEye;
-        const eyeSeparation = 40; // How far apart the "eyes" are for the 3D effect
-
+        const eyeSeparation = 40;
         const rings = [];
-        const totalRings = 30; 
-        let camZ = 0; 
-        const flightSpeed = 40;
-
+        const totalRings = 30;
+        const ringSpacing = 300;
+        const tunnelSegment = totalRings * ringSpacing;
         const stars = [];
         const totalStars = 125;
-
-        const ringSpacing = 300;
-        const tunnelLength = totalRings * ringSpacing;
+        const starSpawnRadius = 4000;
+        let camZ = 0;
+        const flightSpeed = 40;
 
         p.setup = function() {
           p.createCanvas(p.windowWidth, p.windowHeight, p.WEBGL);
           p.noStroke();
-          
-          // Create off-screen graphics for each eye
           leftEye = p.createGraphics(p.width, p.height, p.WEBGL);
           rightEye = p.createGraphics(p.width, p.height, p.WEBGL);
           leftEye.noStroke();
           rightEye.noStroke();
-          
-          // Create the initial set of rings for the tunnel
+
           for (let i = 0; i < totalRings; i++) {
             rings.push(new TunnelRing(i * -ringSpacing));
           }
-          
           for (let i = 0; i < totalStars; i++) {
-              stars.push({
-                  x: p.random(-4000, 4000),
-                  y: p.random(-4000, 4000),
-                  z: p.random(0, -tunnelLength),
-                  color: p.color(p.random(200, 255), p.random(200, 255), p.random(220, 255)),
-                  twinkleOffset: p.random(p.TWO_PI),
-                  twinkleSpeed: p.random(0.05, 0.2) 
-              });
+            stars.push({
+              x: p.random(-starSpawnRadius, starSpawnRadius),
+              y: p.random(-starSpawnRadius, starSpawnRadius),
+              z: p.random(0, -tunnelSegment),
+              color: p.color(p.random(200,255), p.random(200,255), p.random(220,255)),
+              twinkleOffset: p.random(p.TWO_PI),
+              twinkleSpeed: p.random(0.05, 0.2)
+            });
           }
         };
 
-        // A single function to update all object states once per frame
         function updateState() {
-            camZ -= flightSpeed;
+          camZ -= flightSpeed;
+          const recycleThreshold = 50;
 
-            // Star Recycling Logic
-            for (const star of stars) {
-                if (star.z > camZ) {
-                    star.z -= tunnelLength;
-                    star.x = p.random(-4000, 4000);
-                    star.y = p.random(-4000, 4000);
-                }
+          for (const star of stars) {
+            if (star.z > camZ) {
+              star.z -= tunnelSegment;
+              star.x = p.random(-starSpawnRadius, starSpawnRadius);
+              star.y = p.random(-starSpawnRadius, starSpawnRadius);
             }
+          }
 
-            // Ring and Shape Recycling Logic
-            for (const ring of rings) {
-                if (ring.z > camZ + 50) {
-                    ring.z -= totalRings * ringSpacing;
-                    ring.randomize();
-                }
-                // Update rotation for non-smiley shapes
-                if (ring.shapeType !== 'smiley') {
-                    ring.rotation.add(ring.rotationSpeed);
-                }
+          for (const ring of rings) {
+            if (ring.z > camZ + recycleThreshold) {
+              ring.z -= tunnelSegment;
+              ring.randomize();
             }
+            if (ring.shapeType !== 'smiley') {
+              ring.rotation.add(ring.rotationSpeed);
+            }
+          }
+        }
+
+        function drawDynamicGrid(pg) {
+          const gridSize = 12000;
+          const gridLines = 40;
+          const gridSpacing = gridSize / gridLines;
+          const startZ = camZ - (camZ % gridSpacing);
+          pg.push();
+          pg.strokeWeight(2);
+
+          // floor grid (cyan)
+          pg.stroke(0, 255, 255, 150);
+          // vertical lines
+          for (let i = 0; i <= gridLines; i++) {
+            const xPos = -gridSize/2 + i * gridSpacing;
+            pg.line(xPos, 800, startZ, xPos, 800, startZ - tunnelSegment);
+          }
+          // horizontal lines
+          for (let j = 0; j <= gridLines; j++) {
+            const zPos = startZ - j * gridSpacing;
+            pg.line(-gridSize/2, 800, zPos, gridSize/2, 800, zPos);
+          }
+
+          // ceiling grid (magenta)
+          pg.stroke(255, 0, 255, 150);
+          // vertical lines
+          for (let i = 0; i <= gridLines; i++) {
+            const xPos = -gridSize/2 + i * gridSpacing;
+            pg.line(xPos, -800, startZ, xPos, -800, startZ - tunnelSegment);
+          }
+          // horizontal lines
+          for (let j = 0; j <= gridLines; j++) {
+            const zPos = startZ - j * gridSpacing;
+            pg.line(-gridSize/2, -800, zPos, gridSize/2, -800, zPos);
+          }
+
+          pg.pop();
         }
 
         p.draw = function() {
           updateState();
-
-          // Now, draw the scene twice with the updated state
-          drawScene(leftEye, -eyeSeparation / 2); // Left eye
-          drawScene(rightEye, eyeSeparation / 2);  // Right eye
-
-          // Composite the two eye images onto the main canvas
+          drawScene(leftEye, -eyeSeparation/2);
+          drawScene(rightEye, eyeSeparation/2);
           p.background(0);
           p.blendMode(p.ADD);
-
-          p.push();
-          p.tint(255, 0, 0);
-          p.image(leftEye, -p.width / 2, -p.height / 2);
-          p.pop();
-
-          p.push();
-          p.tint(0, 255, 255);
-          p.image(rightEye, -p.width / 2, -p.height / 2);
-          p.pop();
-          
+          p.push(); p.tint(255,0,0); p.image(leftEye, -p.width/2, -p.height/2); p.pop();
+          p.push(); p.tint(0,255,255); p.image(rightEye, -p.width/2, -p.height/2); p.pop();
           p.blendMode(p.BLEND);
         };
 
-        // --- DEFINITIVE FIX: Grid is now fully procedural and infinite ---
-        function drawInfiniteGrid(pg) {
-            pg.push();
-            pg.strokeWeight(2);
-
-            const gridWidth = 10000;
-            const gridDepth = 15000; // How far into the distance the grid is drawn
-            const gridSpacing = 400;
-            const gridY = 800;
-
-            const startZ = camZ - (camZ % gridSpacing);
-
-            // --- Draw Floor Grid (Cyan) ---
-            pg.stroke(0, 255, 255, 150);
-            for (let i = -gridWidth; i <= gridWidth; i += gridSpacing) {
-                pg.line(i, gridY, camZ - gridDepth, i, gridY, camZ + 500);
-            }
-            for (let i = 0; i < 50; i++) {
-                const z = startZ - i * gridSpacing;
-                pg.line(-gridWidth, gridY, z, gridWidth, gridY, z);
-            }
-
-            // --- Draw Ceiling Grid (Magenta) ---
-            pg.stroke(255, 0, 255, 150);
-            for (let i = -gridWidth; i <= gridWidth; i += gridSpacing) {
-                pg.line(i, -gridY, camZ - gridDepth, i, -gridY, camZ + 500);
-            }
-            for (let i = 0; i < 50; i++) {
-                const z = startZ - i * gridSpacing;
-                pg.line(-gridWidth, -gridY, z, gridWidth, -gridY, z);
-            }
-            pg.pop();
-        }
-        
-        // This function now ONLY handles drawing, not state changes.
         function drawScene(pg, eyeX) {
-          pg.background(0, 0, 10);
-          
-          const cameraX = eyeX;
-          const cameraY = 0;
-
-          const lookAtX = eyeX;
-          const lookAtY = 0;
-          const lookAtZ = camZ - 1000;
-
-          pg.camera(cameraX, cameraY, camZ, 
-                    lookAtX, lookAtY, lookAtZ, 
-                    0, 1, 0);
-
-          pg.ambientLight(50, 50, 50);
-          pg.pointLight(255, 255, 255, 0, 0, camZ + 200);
-
-          drawInfiniteGrid(pg);
+          pg.background(0,0,10);
+          pg.camera(eyeX,0,camZ, eyeX,0,camZ-1000, 0,1,0);
+          pg.ambientLight(50,50,50);
+          pg.pointLight(255,255,255, 0,0,camZ+200);
+          drawDynamicGrid(pg);
 
           pg.push();
-          pg.noFill(); 
-          for(const star of stars) {
-              const twinkleSize = 4 + p.sin(p.frameCount * star.twinkleSpeed + star.twinkleOffset) * 3;
-              pg.strokeWeight(twinkleSize);
-              pg.stroke(star.color);
-              
-              pg.point(star.x, star.y, star.z);
+          pg.noFill();
+          for (const star of stars) {
+            const twinkleSize = 4 + p.sin(p.frameCount * star.twinkleSpeed + star.twinkleOffset) * 3;
+            pg.strokeWeight(twinkleSize);
+            pg.stroke(star.color);
+            pg.point(star.x, star.y, star.z);
           }
           pg.pop();
 
@@ -204,7 +166,7 @@
             ring.display(pg);
           }
         }
-        
+
         p.windowResized = function() {
           p.resizeCanvas(p.windowWidth, p.windowHeight);
           leftEye = p.createGraphics(p.width, p.height, p.WEBGL);
@@ -214,97 +176,47 @@
         };
 
         class TunnelRing {
-          constructor(z) {
-            this.z = z;
-            this.randomize();
-          }
-
+          constructor(z) { this.z = z; this.randomize(); }
           randomize() {
             this.angle = p.random(p.TWO_PI);
-            this.radius = p.random(300, 1000);
-            
+            this.radius = p.random(300,1000);
             this.x = p.cos(this.angle) * this.radius;
             this.y = p.sin(this.angle) * this.radius;
-            
-            this.size = p.random(80, 150);
-            
+            this.size = p.random(80,150);
             this.rotation = p.createVector(p.random(p.TWO_PI), p.random(p.TWO_PI), p.random(p.TWO_PI));
-            this.rotationSpeed = p.createVector(p.random(-0.02, 0.02), p.random(-0.02, 0.02), p.random(-0.02, 0.02));
-            
-            const shapes = ['torus', 'box', 'sphere', 'smiley', 'cone', 'cylinder'];
+            this.rotationSpeed = p.createVector(p.random(-0.02,0.02), p.random(-0.02,0.02), p.random(-0.02,0.02));
+            const shapes = ['torus','box','sphere','smiley','cone','cylinder'];
             this.shapeType = p.random(shapes);
           }
-
           drawSmiley(pg, size) {
-              pg.push();
-              pg.rotateZ(-this.rotation.z);
-              pg.rotateY(-this.rotation.y);
-              pg.rotateX(-this.rotation.x);
-              
-              pg.noStroke();
-              pg.fill(255, 255, 0); 
-              pg.ellipse(0, 0, size * 2, size * 2);
-              
-              const gl = pg._renderer.GL;
-              gl.disable(gl.DEPTH_TEST);
-
-              pg.fill(0); 
-              pg.ellipse(-size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
-              pg.ellipse(size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
-
-              pg.stroke(0);
-              pg.strokeWeight(size * 0.1);
-              pg.noFill();
-              pg.arc(0, size * 0.1, size, size, 0, p.PI);
-              
-              gl.enable(gl.DEPTH_TEST);
-
-              pg.pop();
+            pg.push(); pg.rotateZ(-this.rotation.z); pg.rotateY(-this.rotation.y); pg.rotateX(-this.rotation.x);
+            pg.noStroke(); pg.fill(255,255,0); pg.ellipse(0,0,size*2,size*2);
+            const gl = pg._renderer.GL; gl.disable(gl.DEPTH_TEST);
+            pg.fill(0); pg.ellipse(-size*0.3,-size*0.2, size*0.2, size*0.2);
+            pg.ellipse(size*0.3,-size*0.2, size*0.2, size*0.2);
+            pg.stroke(0); pg.strokeWeight(size*0.1); pg.noFill(); pg.arc(0,size*0.1,size,size,0,p.PI);
+            gl.enable(gl.DEPTH_TEST); pg.pop();
           }
-
           display(pg) {
-            pg.push();
-            
-            pg.translate(this.x, this.y, this.z);
-            
+            pg.push(); pg.translate(this.x,this.y,this.z);
             if (this.shapeType !== 'smiley') {
-                pg.rotateX(this.rotation.x);
-                pg.rotateY(this.rotation.y);
-                pg.rotateZ(this.rotation.z);
+              pg.rotateX(this.rotation.x);
+              pg.rotateY(this.rotation.y);
+              pg.rotateZ(this.rotation.z);
             }
-
-            switch (this.shapeType) {
-              case 'torus':
-                pg.normalMaterial();
-                pg.torus(this.size, this.size / 3);
-                break;
-              case 'box':
-                pg.normalMaterial();
-                pg.box(this.size);
-                break;
-              case 'sphere':
-                pg.normalMaterial();
-                pg.sphere(this.size * 0.7);
-                break;
-              case 'smiley':
-                this.drawSmiley(pg, this.size * 0.8);
-                break;
-              case 'cone':
-                pg.normalMaterial();
-                pg.cone(this.size * 0.8, this.size * 1.5);
-                break;
-              case 'cylinder':
-                pg.normalMaterial();
-                pg.cylinder(this.size * 0.7, this.size * 1.2);
-                break;
+            switch(this.shapeType) {
+              case 'torus': pg.normalMaterial(); pg.torus(this.size,this.size/3); break;
+              case 'box': pg.normalMaterial(); pg.box(this.size); break;
+              case 'sphere': pg.normalMaterial(); pg.sphere(this.size*0.7); break;
+              case 'smiley': this.drawSmiley(pg,this.size*0.8); break;
+              case 'cone': pg.normalMaterial(); pg.cone(this.size*0.8, this.size*1.5); break;
+              case 'cylinder': pg.normalMaterial(); pg.cylinder(this.size*0.7, this.size*1.2); break;
             }
-            
             pg.pop();
           }
         }
-      };
 
-      // Create a new p5 instance with our sketch.
+      };
       new p5(sketch);
     </script>
   </body>
