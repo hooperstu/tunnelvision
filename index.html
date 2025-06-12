@@ -6,7 +6,6 @@
     <title>Interactive Anaglyph Tunnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/jdeboi/p5.anaglyph/dist/p5.anaglyph.min.js"></script>
     <style>
       body {
         margin: 0;
@@ -42,30 +41,45 @@
   </head>
   <body>
     <div class="instructions">
-        Put on your 3D glasses and move the mouse to steer through the tunnel.
+        Make some noise! The tunnel's brightness responds to your microphone.
     </div>
     <script>
       // This is p5.js "instance mode".
       const sketch = (p) => {
-        let anaglyph;
+        // Manual anaglyph implementation variables
+        let leftEye, rightEye;
+        const eyeSeparation = 40; // How far apart the "eyes" are for the 3D effect
+
+        // --- NEW: Microphone input variables ---
+        let mic;
+        let micLevel = 0;
+
         const rings = [];
-        const totalRings = 200; 
+        const totalRings = 30; 
         let camZ = 0; 
-        const flightSpeed = 20;
+        const flightSpeed = 40;
 
         const stars = [];
-        const totalStars = 2000;
+        const totalStars = 125;
 
-        const ringSpacing = 100;
+        const ringSpacing = 300;
         const tunnelLength = totalRings * ringSpacing;
 
         p.setup = function() {
           p.createCanvas(p.windowWidth, p.windowHeight, p.WEBGL);
           p.noStroke();
           
-          anaglyph = p.createAnaglyph(p);
+          // Create off-screen graphics for each eye
+          leftEye = p.createGraphics(p.width, p.height, p.WEBGL);
+          rightEye = p.createGraphics(p.width, p.height, p.WEBGL);
+          leftEye.noStroke();
+          rightEye.noStroke();
 
-          // Create the initial set of rings for the tunnel with new spacing
+          // --- NEW: Initialize microphone input ---
+          mic = new p5.AudioIn();
+          mic.start();
+
+          // Create the initial set of rings for the tunnel
           for (let i = 0; i < totalRings; i++) {
             rings.push(new TunnelRing(i * -ringSpacing));
           }
@@ -76,14 +90,38 @@
                   y: p.random(-4000, 4000),
                   z: p.random(0, -tunnelLength),
                   color: p.color(p.random(200, 255), p.random(200, 255), p.random(220, 255)),
-                  twinkleOffset: p.random(p.TWO_PI)
+                  twinkleOffset: p.random(p.TWO_PI),
+                  twinkleSpeed: p.random(0.05, 0.2) 
               });
           }
         };
 
         p.draw = function() {
           camZ -= flightSpeed;
-          anaglyph.draw(drawScene);
+
+          // --- NEW: Get microphone volume ---
+          // Smooth the mic level reading for a less jittery effect
+          micLevel = p.lerp(micLevel, mic.getLevel(), 0.1);
+
+          // Draw the scene twice, once for each eye
+          drawScene(leftEye, -eyeSeparation / 2); // Left eye is offset to the left
+          drawScene(rightEye, eyeSeparation / 2);  // Right eye is offset to the right
+
+          // Composite the two eye images onto the main canvas
+          p.background(0); // Clear the main canvas
+          p.blendMode(p.ADD); // Use ADD blend mode to combine the colors
+
+          p.push();
+          p.tint(255, 0, 0); // Apply red filter
+          p.image(leftEye, -p.width / 2, -p.height / 2);
+          p.pop();
+
+          p.push();
+          p.tint(0, 255, 255); // Apply cyan filter
+          p.image(rightEye, -p.width / 2, -p.height / 2);
+          p.pop();
+          
+          p.blendMode(p.BLEND); // Reset blend mode
         };
 
         function drawStarfoxGrid(pg) {
@@ -91,48 +129,61 @@
             pg.strokeWeight(2);
 
             const gridSize = 12000;
-            const gridLines = 80;
+            const gridLines = 40;
             const gridSpacing = gridSize / gridLines;
-            const gridY = 1200;
+            const gridY = 800;
 
             pg.stroke(0, 255, 255, 150);
             for (let i = 0; i <= gridLines; i++) {
                 const pos = -gridSize / 2 + i * gridSpacing;
-                pg.line(pos, gridY, -gridSize, pos, gridY, gridSize);
-                pg.line(-gridSize, gridY, pos, gridSize, gridY, pos);
+                pg.line(pos, gridY, -gridSize*2, pos, gridY, gridSize*2);
+            }
+            const startZ = camZ - (camZ % gridSpacing);
+            for (let i = 0; i < 80; i++) {
+                const pos = startZ - i * gridSpacing;
+                pg.line(-gridSize/2, gridY, pos, gridSize/2, gridY, pos);
             }
 
             pg.stroke(255, 0, 255, 150);
-            pg.line(-gridSize, -gridY, -gridSize/2, -gridSize, -gridY, gridSize/2)
             for (let i = 0; i <= gridLines; i++) {
                 const pos = -gridSize / 2 + i * gridSpacing;
-                pg.line(pos, -gridY, -gridSize, pos, -gridY, gridSize);
-                pg.line(-gridSize, -gridY, pos, gridSize, -gridY, pos);
+                pg.line(pos, -gridY, -gridSize*2, pos, -gridY, gridSize*2);
+            }
+            for (let i = 0; i < 80; i++) {
+                const pos = startZ - i * gridSpacing;
+                pg.line(-gridSize/2, -gridY, pos, gridSize/2, -gridY, pos);
             }
 
             pg.pop();
         }
         
-        function drawScene(pg) {
+        // drawScene now takes an eye offset
+        function drawScene(pg, eyeX) {
           pg.background(0, 0, 10);
           
-          const cameraX = 0;
+          const cameraX = eyeX; // Apply the eye offset to the camera
           const cameraY = 0;
 
-          const lookAtX = p.map(p.mouseX, 0, p.width, -p.width/2, p.width/2);
-          const lookAtY = p.map(p.mouseY, 0, p.height, p.height/2, -p.height/2);
+          // The camera now looks straight ahead from its position
+          const lookAtX = eyeX;
+          const lookAtY = 0;
           const lookAtZ = camZ - 1000;
 
           pg.camera(cameraX, cameraY, camZ, 
                     lookAtX, lookAtY, lookAtZ, 
                     0, 1, 0);
 
-          pg.ambientLight(50, 50, 50);
-          pg.pointLight(255, 255, 255, 0, 0, camZ + 200);
+          // --- UPDATED: Lighting brightness is controlled by micLevel ---
+          const ambientBrightness = p.map(micLevel, 0, 0.5, 20, 150);
+          const pointBrightness = p.map(micLevel, 0, 0.5, 100, 255);
+          pg.ambientLight(ambientBrightness);
+          pg.pointLight(pointBrightness, pointBrightness, pointBrightness, 0, 0, camZ + 200);
 
           drawStarfoxGrid(pg);
 
+          // Star rendering
           pg.push();
+          pg.noFill(); // Points don't have a fill
           for(const star of stars) {
               if (star.z > camZ) {
                   star.z -= tunnelLength;
@@ -140,12 +191,12 @@
                   star.y = p.random(-4000, 4000);
               }
               
-              pg.push();
-              pg.ambientMaterial(star.color);
-              pg.translate(star.x, star.y, star.z);
-              const twinkleSize = 6 + p.sin(p.frameCount * 0.1 + star.twinkleOffset) * 4;
-              pg.sphere(twinkleSize);
-              pg.pop();
+              const twinkleSize = 4 + p.sin(p.frameCount * star.twinkleSpeed + star.twinkleOffset) * 3;
+              pg.strokeWeight(twinkleSize);
+              pg.stroke(star.color);
+              
+              // Draw the star as a simple, fast point
+              pg.point(star.x, star.y, star.z);
           }
           pg.pop();
 
@@ -156,6 +207,11 @@
         
         p.windowResized = function() {
           p.resizeCanvas(p.windowWidth, p.windowHeight);
+          // Re-create the eye canvases instead of trying to resize them
+          leftEye = p.createGraphics(p.width, p.height, p.WEBGL);
+          rightEye = p.createGraphics(p.width, p.height, p.WEBGL);
+          leftEye.noStroke();
+          rightEye.noStroke();
         };
 
         class TunnelRing {
@@ -166,7 +222,7 @@
 
           randomize() {
             this.angle = p.random(p.TWO_PI);
-            this.radius = p.random(500, 1000);
+            this.radius = p.random(300, 1000);
             
             this.x = p.cos(this.angle) * this.radius;
             this.y = p.sin(this.angle) * this.radius;
@@ -180,36 +236,36 @@
             this.shapeType = p.random(shapes);
           }
 
-          // --- UPDATED: Smiley is now a flat, 2D shape ---
           drawSmiley(pg, size) {
               pg.push();
-              // A "billboard" effect so the 2D shape always faces the camera.
-              // We undo the object's rotation for this specific shape.
               pg.rotateZ(-this.rotation.z);
               pg.rotateY(-this.rotation.y);
               pg.rotateX(-this.rotation.x);
               
               // Head
-              pg.emissiveMaterial(255, 255, 0); // Bright yellow, ignores lighting
+              pg.emissiveMaterial(255, 255, 0);
               pg.noStroke();
               pg.ellipse(0, 0, size * 2, size * 2);
 
-              // Eyes
-              pg.emissiveMaterial(0); // Black
+              // Eyes - drawn at a slightly positive Z to appear on top
+              pg.push();
+              pg.translate(0, 0, 1); // Tiny Z offset
+              pg.emissiveMaterial(0);
               pg.ellipse(-size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
               pg.ellipse(size * 0.3, -size * 0.2, size * 0.2, size * 0.2);
 
-              // Smile
+              // Smile - also drawn at the same positive Z
               pg.stroke(0);
               pg.strokeWeight(size * 0.1);
               pg.noFill();
               pg.arc(0, size * 0.1, size, size, 0, p.PI);
+              pg.pop();
 
               pg.pop();
           }
 
           updateAndDisplay(pg) {
-            if (this.z > camZ + 200) {
+            if (this.z > camZ + 50) {
               this.z -= totalRings * ringSpacing;
               this.randomize();
             }
@@ -218,7 +274,6 @@
             
             pg.translate(this.x, this.y, this.z);
             
-            // Only apply rotation if it's not a smiley face
             if (this.shapeType !== 'smiley') {
                 this.rotation.add(this.rotationSpeed);
                 pg.rotateX(this.rotation.x);
@@ -240,7 +295,6 @@
                 pg.sphere(this.size * 0.7);
                 break;
               case 'smiley':
-                // Call the new 2D smiley function
                 this.drawSmiley(pg, this.size * 0.8);
                 break;
               case 'cone':
